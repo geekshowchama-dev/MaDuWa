@@ -113,7 +113,7 @@ BOT_TOKEN=YOUR_TELEGRAM_BOT_TOKEN
 
 * **Name:** Maduwa
 * **Telegram:** [@deweni2](https://t.me/deweni2)
-* **GitHub:** [https://github.com/maduwa](https://github.com/maduwa)
+* **GitHub:** [https://github.com/MaDuWA-LK](https://github.com/MaDuWA-LK)
 
 > Built with ❤️ for the Telegram community
 
