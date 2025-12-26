@@ -29,18 +29,15 @@ def search_query(q: str) -> str:
     return f"ytsearch1:{q}"
 
 def build_caption(info, user, is_audio=False):
-    # File size
     size = info.get("filesize") or info.get("filesize_approx") or 0
     size_mb = round(size / 1024 / 1024, 2)
 
-    # Upload date formatting
     upload_date = info.get("upload_date")
     if upload_date and len(upload_date) == 8:
         upload_date = f"{upload_date[:4]}-{upload_date[4:6]}-{upload_date[6:]}"
     else:
         upload_date = "N/A"
 
-    # Duration formatting
     duration = info.get("duration")
     if duration:
         m, s = divmod(duration, 60)
@@ -99,7 +96,7 @@ async def song(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "quiet": True,
     }
 
-    await update.message.reply_text("🎧 Downloading song...")
+    service_msg = await update.message.reply_text("🎧 Downloading song...")
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -122,6 +119,12 @@ async def song(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"❌ Error:\n`{e}`", parse_mode="Markdown")
 
+    finally:
+        try:
+            await service_msg.delete()
+        except:
+            pass
+
 # ───────────── VIDEO ─────────────
 async def video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
@@ -138,7 +141,7 @@ async def video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "quiet": True,
     }
 
-    await update.message.reply_text("🎬 Downloading video...")
+    service_msg = await update.message.reply_text("🎬 Downloading video...")
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -151,7 +154,7 @@ async def video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if size_mb > MAX_VIDEO_MB:
             os.remove(file_path)
             await update.message.reply_text(
-                f"❌ Video too large ({round(size_mb,2)} MB)\nTry a shorter video."
+                f"❌ Video too large ({round(size_mb,2)} MB)"
             )
             return
 
@@ -168,6 +171,12 @@ async def video(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         await update.message.reply_text(f"❌ Error:\n`{e}`", parse_mode="Markdown")
+
+    finally:
+        try:
+            await service_msg.delete()
+        except:
+            pass
 
 # ──────────────────────────────
 # Main
