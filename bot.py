@@ -13,7 +13,7 @@ TOKEN = os.getenv("BOT_TOKEN")
 DOWNLOAD_DIR = "downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-MAX_SIZE_MB = 48  # Safe Telegram limit
+MAX_VIDEO_MB = 48  # Telegram bot safe limit
 
 # ──────────────────────────────
 # Helpers
@@ -23,17 +23,19 @@ def dev_button():
         [[InlineKeyboardButton("👨‍💻 Developer", url="https://t.me/deweni2")]]
     )
 
-def get_search(query: str) -> str:
-    if query.startswith("http"):
-        return query
-    return f"ytsearch1:{query}"
+def search_query(q: str) -> str:
+    if q.startswith("http"):
+        return q
+    return f"ytsearch1:{q}"
 
-def build_caption(info, user):
+def build_caption(info, user, is_audio=False):
     size = info.get("filesize") or info.get("filesize_approx") or 0
     size_mb = round(size / 1024 / 1024, 2)
 
+    emoji = "🎵" if is_audio else "🎬"
+
     return (
-        f"🎬 *Title:* {info.get('title','N/A')}\n"
+        f"{emoji} *Title:* {info.get('title','N/A')}\n"
         f"📺 *Channel:* {info.get('uploader','N/A')}\n"
         f"⏰ *Duration:* {info.get('duration_string','N/A')}\n"
         f"📦 *File Size:* {size_mb} MB\n"
@@ -47,58 +49,84 @@ def build_caption(info, user):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "👋 *Welcome!*\n\n"
-        "🎵 `/song <name>` – Audio\n"
-        "🎬 `/video <name>` – Compressed video\n\n"
+        "🎵 `/song <name or url>` – Download song\n"
+        "🎬 `/video <name or url>` – Download compressed video\n\n"
         "Example:\n"
+        "`/song sanam re`\n"
         "`/video sanam re`\n\n"
-        "🚀 @deweni2",
+        "🚀 Developer: @deweni2",
         parse_mode="Markdown",
         reply_markup=dev_button()
     )
 
+# ───────────── SONG ─────────────
+async def song(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text("❌ `/song <name or url>`", parse_mode="Markdown")
+        return
+
+    query = search_query(" ".join(context.args))
+
+    ydl_opts = {
+        "format": "bestaudio[ext=m4a]/bestaudio",
+        "outtmpl": f"{DOWNLOAD_DIR}/%(title)s.%(ext)s",
+        "noplaylist": True,
+        "quiet": True,
+    }
+
+    await update.message.reply_text("🎧 Downloading song...")
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(query, download=True)
+            if "entries" in info:
+                info = info["entries"][0]
+            file_path = ydl.prepare_filename(info)
+
+        caption = build_caption(info, update.message.from_user, is_audio=True)
+
+        await update.message.reply_audio(
+            audio=open(file_path, "rb"),
+            caption=caption,
+            parse_mode="Markdown",
+            reply_markup=dev_button()
+        )
+
+        os.remove(file_path)
+
+    except Exception as e:
+        await update.message.reply_text(f"❌ Error:\n`{e}`", parse_mode="Markdown")
+
+# ───────────── VIDEO ─────────────
 async def video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text("❌ `/video <name or url>`", parse_mode="Markdown")
         return
 
-    query = " ".join(context.args)
-    search = get_search(query)
+    query = search_query(" ".join(context.args))
 
     ydl_opts = {
-        "format": "bv*[filesize_approx<50M]+ba/best",
-        "merge_output_format": "mp4",
+        "format": "best[ext=mp4][filesize_approx<50M]/best",
         "outtmpl": f"{DOWNLOAD_DIR}/%(title)s.%(ext)s",
-        "quiet": True,
+        "merge_output_format": "mp4",
         "noplaylist": True,
-        "postprocessors": [
-            {
-                "key": "FFmpegVideoConvertor",
-                "preferedformat": "mp4",
-            },
-            {
-                "key": "FFmpegVideoRemuxer",
-                "preferedformat": "mp4",
-            }
-        ],
+        "quiet": True,
     }
 
-    await update.message.reply_text("🎬 Downloading & compressing...")
+    await update.message.reply_text("🎬 Downloading video...")
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(search, download=True)
-
+            info = ydl.extract_info(query, download=True)
             if "entries" in info:
                 info = info["entries"][0]
-
             file_path = ydl.prepare_filename(info)
 
         size_mb = os.path.getsize(file_path) / 1024 / 1024
-
-        if size_mb > MAX_SIZE_MB:
+        if size_mb > MAX_VIDEO_MB:
             os.remove(file_path)
             await update.message.reply_text(
-                f"❌ Video too large after compression ({round(size_mb,2)} MB)\nTry shorter video."
+                f"❌ Video too large ({round(size_mb,2)} MB)\nTry a shorter video."
             )
             return
 
@@ -121,10 +149,9 @@ async def video(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ──────────────────────────────
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
-
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("song", song))
     app.add_handler(CommandHandler("video", video))
-
     print("Bot running...")
     app.run_polling()
 
