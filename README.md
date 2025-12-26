@@ -125,7 +125,7 @@ If you like this project:
 
 * ⭐ Star this repository
 * 🍴 Fork it
-* 👤 Follow **@maduwa** on GitHub
+* 👤 Follow **@MaDuWA-LK** on GitHub
 * 📢 Share with friends
 
 ---
