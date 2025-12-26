@@ -29,17 +29,42 @@ def search_query(q: str) -> str:
     return f"ytsearch1:{q}"
 
 def build_caption(info, user, is_audio=False):
+    # File size
     size = info.get("filesize") or info.get("filesize_approx") or 0
     size_mb = round(size / 1024 / 1024, 2)
+
+    # Upload date formatting
+    upload_date = info.get("upload_date")
+    if upload_date and len(upload_date) == 8:
+        upload_date = f"{upload_date[:4]}-{upload_date[4:6]}-{upload_date[6:]}"
+    else:
+        upload_date = "N/A"
+
+    # Duration formatting
+    duration = info.get("duration")
+    if duration:
+        m, s = divmod(duration, 60)
+        duration_str = f"{m}:{s:02d}"
+    else:
+        duration_str = "N/A"
+
+    age_restricted = "Yes" if info.get("age_limit", 0) > 0 else "No"
+    category = (info.get("categories") or ["N/A"])[0]
 
     emoji = "🎵" if is_audio else "🎬"
 
     return (
         f"{emoji} *Title:* {info.get('title','N/A')}\n"
         f"📺 *Channel:* {info.get('uploader','N/A')}\n"
-        f"⏰ *Duration:* {info.get('duration_string','N/A')}\n"
+        f"📂 *Category:* {category}\n"
+        f"📅 *Upload Date:* {upload_date}\n"
+        f"⏰ *Duration:* {duration_str}\n"
+        f"👀 *Views:* {info.get('view_count','N/A')}\n"
+        f"👍 *Likes:* {info.get('like_count','Hidden')}\n"
+        f"💬 *Comments:* {info.get('comment_count','Hidden')}\n"
         f"📦 *File Size:* {size_mb} MB\n"
-        f"👀 *Views:* {info.get('view_count','N/A')}\n\n"
+        f"⚖️ *License:* {info.get('license','Standard')}\n"
+        f"🔞 *Age Restricted:* {age_restricted}\n\n"
         f"🙋 *Requested by:* {user.mention_markdown()}"
     )
 
